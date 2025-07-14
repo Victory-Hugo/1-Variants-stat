@@ -9,7 +9,7 @@
 - singleton/doubleton 统计
 
 同时输出两份 CSV：
-1) 汇总统计：Frequency/Type/Special 分类计数
+1) 汇总统计：Frequency/Type/Special 分类计数（含 Source 列）
 2) 变异详情：CHROM, POS, REF, ALT, AC, Source
 """
 
@@ -55,11 +55,9 @@ def main():
 
     # 遍历每个位点
     for var in vcf:
-        # 重新计算 AC_list 与 AN
-        # cyvcf2: var.genotypes => [[g0,g1,phased], ...]
         genos = var.genotypes
         n_alt = len(var.ALT)
-        ac_list = [0]*n_alt
+        ac_list = [0] * n_alt
         an = 0
 
         for g in genos:
@@ -67,35 +65,30 @@ def main():
             # 缺失或杂合当缺失
             if a0 is None or a1 is None or a0 != a1:
                 continue
-            # 同等位，计入 AN
             an += 1
-            # 参考不计 AC
             if a0 == 0:
                 continue
-            # ALT 计数一次（真实单倍体）
-            idx = a0 - 1  # ALT 索引
+            idx = a0 - 1
             if 0 <= idx < n_alt:
                 ac_list[idx] += 1
 
         total_ac = sum(ac_list)
-        # 全部缺失或无变异则跳过
         if an == 0 or total_ac == 0:
             continue
 
-        # 输出每个 ALT 的详情
+        # 输出变异详情
         for alt, ac_val in zip(var.ALT, ac_list):
             if ac_val > 0:
                 var_writer.writerow([var.CHROM, var.POS, var.REF, alt, ac_val, base])
 
-        # singleton/doubleton 统计（基于样本中变异个体数）
+        # singleton/doubleton 统计
         if total_ac == 1:
             special_counts["Singleton"] += 1
         elif total_ac == 2:
             special_counts["Doubleton"] += 1
 
-        # 计算频率和 MAF
+        # 计算 MAF
         af = total_ac / an
-        # MAF = min(AF, 1-AF)
         maf = af if af <= 0.5 else 1 - af
 
         # 频率分类
@@ -116,21 +109,21 @@ def main():
 
     var_f.close()
 
-    # 写入汇总统计 CSV
+    # 写入汇总统计 CSV（新增 Source 列）
     try:
         with open(args.out, "w", newline="", encoding="utf-8") as out_f:
             writer = csv.writer(out_f)
-            writer.writerow(["Category","Class","Count"])
+            writer.writerow(["Category","Class","Count","Source"])
             for cls, cnt in freq_counts.items():
-                writer.writerow(["Frequency", cls, cnt])
+                writer.writerow(["Frequency", cls, cnt, base])
             for cls, cnt in type_counts.items():
-                writer.writerow(["Type", cls, cnt])
+                writer.writerow(["Type", cls, cnt, base])
             for cls, cnt in special_counts.items():
-                writer.writerow(["Special", cls, cnt])
+                writer.writerow(["Special", cls, cnt, base])
     except Exception as e:
         sys.exit(f"无法写入 {args.out}：{e}")
 
-    print(f"Done. 统计文件：{args.out}；变异详情：{args.var_out}")
+    print(f"Done. 统计文件：{args.out}（含 Source 列）；变异详情：{args.var_out}")
 
 if __name__ == "__main__":
     main()

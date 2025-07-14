@@ -9,7 +9,7 @@
 - singleton/doubleton 统计
 
 输出两份 CSV：
-1) 汇总统计：Frequency/Type/Special 分类计数
+1) 汇总统计：Frequency/Type/Special 分类计数（含 Source 列）
 2) 变异详情：CHROM, POS, REF, ALT, AC, Source
 """
 
@@ -47,7 +47,7 @@ def main():
 
     # 打开变异详情输出文件
     try:
-        var_f = open(args.var_out, "w", newline="", encoding="utf-8")
+        var_f = open(args.var-out, "w", newline="", encoding="utf-8")
     except Exception as e:
         sys.exit(f"无法创建 {args.var_out}：{e}")
     var_writer = csv.writer(var_f)
@@ -56,7 +56,7 @@ def main():
     # 遍历每个位点
     for var in vcf:
         n_alt = len(var.ALT)
-        ac_list = [0]*n_alt
+        ac_list = [0] * n_alt
         an = 0
 
         # 逐样本按单等位处理：GT 只可能是 "0","1",... 或 "."
@@ -88,7 +88,8 @@ def main():
             special_counts["Doubleton"] += 1
 
         # 计算频率和 MAF
-        af  = total_ac / an
+        af = total_ac / an
+        # MAF = min(AF, 1-AF)
         maf = af if af <= 0.5 else 1 - af
 
         # 频率分类
@@ -109,21 +110,21 @@ def main():
 
     var_f.close()
 
-    # 写入汇总统计 CSV
+    # 写入汇总统计 CSV（新增 Source 列）
     try:
         with open(args.out, "w", newline="", encoding="utf-8") as out_f:
             writer = csv.writer(out_f)
-            writer.writerow(["Category","Class","Count"])
+            writer.writerow(["Category","Class","Count","Source"])
             for cls, cnt in freq_counts.items():
-                writer.writerow(["Frequency", cls, cnt])
+                writer.writerow(["Frequency", cls, cnt, base])
             for cls, cnt in type_counts.items():
-                writer.writerow(["Type", cls, cnt])
+                writer.writerow(["Type", cls, cnt, base])
             for cls, cnt in special_counts.items():
-                writer.writerow(["Special", cls, cnt])
+                writer.writerow(["Special", cls, cnt, base])
     except Exception as e:
         sys.exit(f"无法写入 {args.out}：{e}")
 
-    print(f"Done. 统计文件：{args.out}；变异详情：{args.var_out}")
+    print(f"Done. 统计文件：{args.out}（含 Source 列）；变异详情：{args.var_out}")
 
 if __name__ == "__main__":
     main()

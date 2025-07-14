@@ -58,7 +58,7 @@ def main():
         sys.exit(f"无法创建变异详情文件：{e}")
 
     var_writer = csv.writer(var_file)
-    # 增加一列 Source
+    # 变异详情文件头部，最后一列为 Source
     var_writer.writerow(["CHROM", "POS", "REF", "ALT", "AC", "Source"])
 
     # 遍历 VCF 条目，一次完成统计与详情输出
@@ -105,21 +105,22 @@ def main():
 
     var_file.close()
 
-    # 将统计结果写入 CSV
+    # 将统计结果写入 CSV（增加 Source 列）
     try:
         with open(args.out, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["Category", "Class", "Count"])
+            # 新增 Source 列
+            writer.writerow(["Category", "Class", "Count", "Source"])
             for cls, cnt in freq_counts.items():
-                writer.writerow(["Frequency", cls, cnt])
+                writer.writerow(["Frequency", cls, cnt, base])
             for cls, cnt in type_counts.items():
-                writer.writerow(["Type", cls, cnt])
+                writer.writerow(["Type", cls, cnt, base])
             for cls, cnt in special_counts.items():
-                writer.writerow(["Special", cls, cnt])
+                writer.writerow(["Special", cls, cnt, base])
     except Exception as e:
         sys.exit(f"无法写入统计结果文件：{e}")
 
-    print(f"统计完成，统计结果已写入：{args.out}；变异详情（含 Source）已写入：{args.var_out}")
+    print(f"统计完成，统计结果已写入：{args.out}（含 Source 列）；变异详情已写入：{args.var_out}")
 
 if __name__ == "__main__":
     main()

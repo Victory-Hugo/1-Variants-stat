@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-3-韦恩图数据生成_SNV_Common.py
+3-韦恩图数据生成_Indel_Common.py
 
-从变异统计结果中提取Freq为Common且Type为SNV的变异，
+从变异统计结果中提取Freq为Common且Type为Indel的变异，
 生成韦恩图所需的数据文件，用于比较东亚和全球数据集。
 
 功能：
 1. 读取东亚和全球的变异统计CSV文件
-2. 筛选出Freq=Common且Type=SNV的变异
+2. 筛选出Freq=Common且Type=Indel的变异
 3. 对数据进行去重处理（解决重复的(POS,REF,ALT)组合）
 4. 合并两个数据集并分配唯一的Variant_ID
 5. 生成韦恩图所需的CSV文件
@@ -25,7 +25,7 @@ import os
 
 def main():
     parser = argparse.ArgumentParser(
-        description="生成韦恩图数据文件（Freq=Common, Type=SNV）"
+        description="生成韦恩图数据文件（Freq=Common, Type=Indel）"
     )
     parser.add_argument("--ea-file", required=True, 
                        help="东亚变异统计CSV文件路径")
@@ -58,10 +58,10 @@ def main():
         print(f"东亚数据: {len(df_EA)} 行")
         print(f"全球数据: {len(df_Global)} 行")
         
-        # 2. 筛选Common且SNV的变异
-        print("\n步骤2：筛选Freq=Common且Type=SNV的变异...")
-        df_EA_filtered = df_EA[(df_EA['Freq'] == 'Common') & (df_EA['Type'] == 'SNV')]
-        df_Global_filtered = df_Global[(df_Global['Freq'] == 'Common') & (df_Global['Type'] == 'SNV')]
+        # 2. 筛选Common且Indel的变异
+        print("\n步骤2：筛选Freq=Common且Type=Indel的变异...")
+        df_EA_filtered = df_EA[(df_EA['Freq'] == 'Common') & (df_EA['Type'] == 'Indel')]
+        df_Global_filtered = df_Global[(df_Global['Freq'] == 'Common') & (df_Global['Type'] == 'Indel')]
         
         print(f"东亚筛选后: {len(df_EA_filtered)} 行")
         print(f"全球筛选后: {len(df_Global_filtered)} 行")
@@ -151,7 +151,7 @@ def main():
         with open(report_file, 'w', encoding='utf-8') as f:
             f.write("韦恩图数据生成报告\n")
             f.write("=" * 30 + "\n\n")
-            f.write(f"筛选条件: Freq=Common, Type=SNV\n")
+            f.write(f"筛选条件: Freq=Common, Type=Indel\n")
             f.write(f"去重方法: {args.dedup_method}\n\n")
             f.write("数据统计:\n")
             f.write(f"- 东亚原始数据: {len(df_EA)} 行\n")

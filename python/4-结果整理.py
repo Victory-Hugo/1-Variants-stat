@@ -4,7 +4,7 @@
 merge_variants.py
 
 功能一：将多个地区的 variants_with_source CSV 文件合并成一个按地区 AC 分列的整合表格。
-功能二：将指定目录下所有不以 .var.csv 结尾的 .csv 文件合并成一个 CSV，只保留一次表头。
+功能二：将指定目录下所有不以 .var.csv 结尾的 .csv 文件合并成一个 CSV，只保留一次表头，并在含有 Category/Class 时做自定义排序。
 
 用法示例：
     # 仅做 .var.csv 透视整合
@@ -12,7 +12,7 @@ merge_variants.py
         --var-dir /path/to/variants_csvs \
         --out pivoted.csv
 
-    # 仅做普通 CSV 合并
+    # 仅做普通 CSV 合并（并排序）
     python merge_variants.py \
         --merge-dir /path/to/csvs \
         --merge-out merged.csv
@@ -32,34 +32,61 @@ import sys
 import pandas as pd
 
 def merge_plain_csv(input_dir, output_file):
-    """合并普通 CSV（不包括以 .var.csv 或 .var_*.csv 结尾的），保留一次表头"""
-    import glob, os, sys
-
+    """合并普通 CSV（不包括以 .var.csv 或 .var_*.csv 结尾的），保留一次表头，
+       并在包含 Category/Class 列时做排序。"""
     pattern = os.path.join(input_dir, "*.csv")
-    # 排除所有 *.var.csv 和 *.var_*.csv
     all_files = glob.glob(pattern)
     files = sorted(f for f in all_files
                    if not (f.endswith(".var.csv") or os.path.basename(f).startswith("*.var_")))
     if not files:
         sys.exit(f"在目录 {input_dir} 中未找到符合条件的普通 CSV 文件。")
 
+    # 1) 合并
     with open(output_file, 'w', encoding='utf-8', newline='') as fo:
         for idx, f in enumerate(files):
             with open(f, 'r', encoding='utf-8') as fi:
                 lines = fi.readlines()
                 if idx == 0:
-                    # 第一份文件，连同表头一起写入
                     fo.writelines(lines)
                 else:
-                    # 后续文件，若仅有表头（len<=1）则跳过，否则写入除表头外的行
                     if len(lines) > 1:
                         fo.writelines(lines[1:])
     print(f"[普通 CSV 合并] 已将 {len(files)} 个文件合并，并保存为：{output_file}")
 
+    # 2) 如果有 Category 和 Class 列，则做自定义排序
+    try:
+        df = pd.read_csv(output_file, encoding='utf-8')
+    except Exception:
+        # 读不进去就直接返回
+        return
+
+    if "Category" in df.columns and "Class" in df.columns:
+        # 自定义 Category 排序
+        cat_order = {"Frequency": 0, "Type": 1, "Special": 2}
+        # 自定义 Frequency 下的 Class 排序
+        freq_order = {"Common": 0, "LowFreq": 1, "Rare": 2, "UltraRare": 3}
+
+        # 生成排序辅助列
+        df['_cat_rank'] = df['Category'].map(cat_order).fillna(999).astype(int)
+        # 对于 Frequency 分类才应用 freq_order，否则设 0
+        df['_class_rank'] = df.apply(
+            lambda r: freq_order[r['Class']] if r['Category']=="Frequency" and r['Class'] in freq_order else 0,
+            axis=1
+        )
+
+        # 排序：先 cat，再 class，再原始行序稳定
+        df = df.sort_values(
+            by=['_cat_rank', 'Category', '_class_rank', 'Class'],
+            kind='mergesort'
+        ).reset_index(drop=True)
+
+        # 去除辅助列，写回文件
+        df = df.drop(columns=['_cat_rank', '_class_rank'])
+        df.to_csv(output_file, index=False, encoding='utf-8')
+        print(f"[普通 CSV 排序] 已按 Category 与 Frequency 子类自定义顺序排序。")
 
 def merge_and_pivot_vars(var_dir, pivot_out):
     """合并 .var.csv / .var_*.csv 并按 Source 透视 AC"""
-    # 支持两种命名模式：*.var.csv 和 *.var_*.csv
     pattern1 = os.path.join(var_dir, "*.var.csv")
     pattern2 = os.path.join(var_dir, "*.var_*.csv")
     files = sorted(set(glob.glob(pattern1) + glob.glob(pattern2)))
@@ -86,7 +113,7 @@ def merge_and_pivot_vars(var_dir, pivot_out):
         )
         .reset_index()
     )
-    pivot.columns.name = None  # 去除列名层次
+    pivot.columns.name = None
     pivot.to_csv(pivot_out, index=False, encoding='utf-8')
     print(f"[.var.csv 透视] 已输出整合文件：{pivot_out}，共 {len(pivot)} 条记录")
 
@@ -112,7 +139,7 @@ def main():
     )
     args = parser.parse_args()
 
-    # 校验参数
+    # 参数校验
     if args.var_dir and not args.out:
         sys.exit("指定了 --var-dir，请同时指定 --out 输出路径。")
     if args.out and not args.var_dir:

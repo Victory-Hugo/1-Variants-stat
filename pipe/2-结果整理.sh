@@ -1,5 +1,5 @@
 #!
-BASE_DIR='/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/output/merged_biallelic_7544.NoN/'
+BASE_DIR='/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/output/比较东亚和全球/'
 VAR_DIR="${BASE_DIR}/var/"
 CSV_DIR="${BASE_DIR}/csv/"
 
@@ -22,5 +22,5 @@ for file in ${BASE_DIR}/*.csv;do
 /home/luolintao/miniconda3/envs/pyg/bin/python3 \
   /mnt/f/OneDrive/文档（科研）/脚本/Download/1-Variants-stat/python/5-韦恩数据.py \
   --input  ${VAR_DIR}/merged_all_sources.csv \
-  --output ${VAR_DIR}/粗分venn_counts.csv
+  --output ${VAR_DIR}/venn_counts.csv
 

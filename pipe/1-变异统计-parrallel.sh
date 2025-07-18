@@ -6,8 +6,8 @@ JOBS=8
 
 PYTHON="/home/luolintao/miniconda3/envs/pyg/bin/python3"
 SCRIPT="/mnt/f/OneDrive/文档（科研）/脚本/Download/1-Variants-stat/python/2-伪二倍体文件统计.py"
-DATA_DIR="/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/conf/比较东亚和全球/"
-OUT_DIR="/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/output/比较东亚和全球/"
+DATA_DIR="/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/conf/东亚低地和高地/"
+OUT_DIR="/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/output/东亚低地和高地/"
 
 # 确保输出目录存在
 mkdir -p "$OUT_DIR"

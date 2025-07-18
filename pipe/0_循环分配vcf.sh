@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 定义输入目录和待处理的主VCF文件
-INPUT_DIR="/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/conf/比较东亚和全球/"
+INPUT_DIR="/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/conf/东亚低地和高地/"
 VCF_FILE="/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/global/merged_biallelic_7544.NoN.vcf.gz"
 
 # 定义处理单个样本文件的函数

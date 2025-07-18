@@ -1,6 +1,6 @@
 # !/bin/bash
 
-VAR_DIR='/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/output/比较东亚和全球/var/'
+VAR_DIR='/mnt/d/幽门螺旋杆菌/Script/分析结果/2-变异统计/conf/细分/'
 
 /home/luolintao/miniconda3/envs/pyg/bin/python3 \
      /mnt/f/OneDrive/文档（科研）/脚本/Download/1-Variants-stat/python/7-分箱堆叠.py \

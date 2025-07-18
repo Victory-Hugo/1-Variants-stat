@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-1-纯单倍体文件统计.py
+1-纯单倍体文件统计_带MAF.py
 
-统计单倍体 VCF.gz 中每个位点的变异：
+在纯单倍体 VCF.gz 基础上，逐等位基因统计并输出 MAF：
 - 按频率分类：Common/LowFreq/Rare/UltraRare
 - 类型分类：SNV/Indel
 - singleton/doubleton 统计
 
 输出两份 CSV：
 1) 汇总统计：Frequency/Type/Special 分类计数（含 Source 列）
-2) 变异详情：CHROM, POS, REF, ALT, AC, Source, Freq, Type, Special
+2) 变异详情：CHROM, POS, REF, ALT, AC, Source, Freq, Type, Special, MAF
 """
 
 import argparse
@@ -21,14 +21,14 @@ from cyvcf2 import VCF
 
 def main():
     parser = argparse.ArgumentParser(
-        description="纯单倍体 VCF 统计脚本（伪二倍体逻辑）"
+        description="纯单倍体 VCF 统计脚本（带 MAF 列）"
     )
     parser.add_argument("-i", "--vcf",     required=True, help="输入 VCF.gz 文件")
-    parser.add_argument("-o", "--out",     required=True, help="输出统计结果 CSV")
+    parser.add_argument("-o", "--out",     required=True, help="输出汇总统计 CSV")
     parser.add_argument("-v", "--var-out", required=True, help="输出变异详情 CSV")
     args = parser.parse_args()
 
-    # 计算来源基础名
+    # 计算 Source 名称
     base = os.path.basename(args.vcf)
     for ext in (".vcf.gz", ".vcf"):
         if base.endswith(ext):
@@ -41,66 +41,53 @@ def main():
     except Exception as e:
         sys.exit(f"无法打开 VCF：{e}")
 
-    # ----- 写入变异详情（含 Freq, Type, Special 列） -----
+    # ----- 写入变异详情（含 MAF 列） -----
     try:
-        var_f = open(args.var-out, "w", newline="", encoding="utf-8")
+        var_f = open(args.var_out, "w", newline="", encoding="utf-8")
     except Exception as e:
         sys.exit(f"无法创建 {args.var_out}：{e}")
     var_writer = csv.writer(var_f)
     var_writer.writerow([
         "CHROM", "POS", "REF", "ALT", "AC", "Source",
-        "Freq", "Type", "Special"
+        "Freq", "Type", "Special", "MAF"
     ])
 
-    # 遍历每个位点
     for var in vcf:
-        n_alt = len(var.ALT)
-        ac_list = [0] * n_alt
-        an = 0
-
-        # 伪二倍体逻辑：只统计同型非缺失基因型
-        for g in var.genotypes:
-            a0, a1, _ = g
-            if a0 is None or a1 is None or a0 != a1:
-                continue
-            an += 1
-            if a0 == 0:
-                continue
-            idx = a0 - 1
-            if 0 <= idx < n_alt:
-                ac_list[idx] += 1
-
-        total_ac = sum(ac_list)
-        if an == 0 or total_ac == 0:
+        # 直接从 INFO 拿 AC 和 AN
+        an      = var.INFO.get("AN")
+        ac_info = var.INFO.get("AC")
+        if an is None or an == 0 or ac_info is None:
             continue
 
-        # 类型分类（位点层面）
+        # 多等位时 AC 可能是列表
+        ac_list = ac_info if isinstance(ac_info, list) else [ac_info]
+
+        # 位点类型
         type_label = "SNV" if var.is_snp else "Indel"
 
-        # 写入每个 ALT 的一行
+        # 逐个 ALT 等位统计
         for alt, ac_val in zip(var.ALT, ac_list):
             if ac_val == 0:
                 continue
 
-            # 计算等位基因频率 AF 和最小等位基因频率 MAF
-            # ```python
-            # af_ind  = ac_val / an
-            # maf_ind = af_ind if af_ind <= 0.5 else 1 - af_ind
-            # ```
-            af_ind  = ac_val / an
-            maf_ind = af_ind if af_ind <= 0.5 else 1 - af_ind
+            # 计算 AF 和 MAF
+            af  = ac_val / an
+            maf = af if af <= 0.5 else 1 - af
+
+            # 格式化 MAF（百分比，保留两位小数）
+            maf_str = f"{maf * 100:.2f}%"
 
             # 频率分类
-            if maf_ind >= 0.05:
+            if maf >= 0.05:
                 freq_label = "Common"
-            elif maf_ind >= 0.01:
+            elif maf >= 0.01:
                 freq_label = "LowFreq"
-            elif maf_ind >= 0.001:
+            elif maf >= 0.001:
                 freq_label = "Rare"
             else:
                 freq_label = "UltraRare"
 
-            # special 标签按每个 ALT 的 AC
+            # Special 分类
             if ac_val == 1:
                 special_label = "Singleton"
             elif ac_val == 2:
@@ -108,6 +95,7 @@ def main():
             else:
                 special_label = ""
 
+            # 写入详情行
             var_writer.writerow([
                 var.CHROM,
                 var.POS,
@@ -117,12 +105,13 @@ def main():
                 base,
                 freq_label,
                 type_label,
-                special_label
+                special_label,
+                maf_str
             ])
 
     var_f.close()
 
-    # ----- 读取详情文件，重新统计汇总 -----
+    # ----- 从详情文件读回，统计汇总 -----
     freq_counts    = {}
     type_counts    = {}
     special_counts = {}
@@ -130,8 +119,8 @@ def main():
         with open(args.var_out, newline="", encoding="utf-8") as vf:
             reader = csv.DictReader(vf)
             for row in reader:
-                freq_counts[row["Freq"]]    = freq_counts.get(row["Freq"], 0) + 1
-                type_counts[row["Type"]]    = type_counts.get(row["Type"], 0) + 1
+                freq_counts   [row["Freq"]]    = freq_counts.get(row["Freq"], 0) + 1
+                type_counts   [row["Type"]]    = type_counts.get(row["Type"], 0) + 1
                 special_counts[row["Special"]] = special_counts.get(row["Special"], 0) + 1
     except Exception as e:
         sys.exit(f"无法读取详情文件 {args.var_out}：{e}")
@@ -151,8 +140,8 @@ def main():
         sys.exit(f"无法写入 {args.out}：{e}")
 
     print(
-        f"Done. 统计文件：{args.out}（基于详情文件计算）；"
-        f"变异详情：{args.var_out}（含 Freq、Type、Special 列）"
+        f"Done. 汇总统计：{args.out}；"
+        f"变异详情（含 MAF 列）：{args.var_out}"
     )
 
 if __name__ == "__main__":

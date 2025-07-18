@@ -9,3 +9,6 @@
 
 # nohup 默认会生成的输出文件
 nohup.out
+
+# 忽略项目根下的 log 目录以及所有子文件
+/output/
